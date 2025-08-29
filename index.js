@@ -10,6 +10,8 @@ import { timeout, validateRequestSize } from "./middleware/timeout.js";
 import { connectDatabase, getDatabaseStatus } from "./services/database.js";
 
 const app = express();
+// Trust proxy for cloud deployments (Render, Heroku, etc.)
+app.set('trust proxy', true);
 
 // Basic security and parsing
 app.use(helmet());
@@ -84,5 +86,6 @@ async function startServer() {
 
 // Start the server
 startServer();
+
 
 
