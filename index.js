@@ -10,8 +10,10 @@ import { timeout, validateRequestSize } from "./middleware/timeout.js";
 import { connectDatabase, getDatabaseStatus } from "./services/database.js";
 
 const app = express();
+
 // Trust proxy for cloud deployments (Render, Heroku, etc.)
-app.set('trust proxy', true);
+// Only trust the first proxy hop (Render's load balancer)
+app.set('trust proxy', 1);
 
 // Basic security and parsing
 app.use(helmet());
@@ -24,7 +26,7 @@ app.use(morgan(config.nodeEnv === "production" ? "combined" : "dev"));
 app.use(timeout(30000)); // 30 seconds
 app.use(validateRequestSize('5mb'));
 
-// Rate limiting (basic)
+// Rate limiting (secure for proxy environments)
 const limiter = rateLimit({ 
 	windowMs: 60 * 1000, // 1 minute
 	max: 60, // limit each IP to 60 requests per windowMs
@@ -35,6 +37,11 @@ const limiter = rateLimit({
 	},
 	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
 	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+	// Custom key generator for better proxy handling
+	keyGenerator: (req) => {
+		// Use X-Forwarded-For if available, fallback to connection remote address
+		return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.connection.remoteAddress || req.ip;
+	},
 	// Add retry-after header
 	handler: (req, res) => {
 		res.set('Retry-After', '60');
@@ -86,6 +93,5 @@ async function startServer() {
 
 // Start the server
 startServer();
-
 
 
